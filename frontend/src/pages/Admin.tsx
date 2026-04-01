@@ -257,7 +257,7 @@ Exit Workspace
 <div className="flex-1 w-full flex flex-col items-center px-4 overflow-hidden pb-4 min-h-0">
 {/* 1. AUTH SCREEN */}
 {!token ? (
-<div className="my-auto w-full max-w-md animate-fade-in overflow-y-auto">
+<div className="my-auto w-full max-w-5xl animate-fade-in overflow-y-auto">
 <AuthCard setToken={setToken} />
 </div>
 ) : /* ✨ 2. FINAL LEADERBOARD DASHBOARD */
