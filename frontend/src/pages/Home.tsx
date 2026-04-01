@@ -18,7 +18,7 @@ export default function Home() {
         <div className="hidden md:flex items-center gap-8 text-sm font-bold text-black/70">
           <a href="#features" className="hover:text-black transition-colors">Product</a>
           <a href="#features" className="hover:text-black transition-colors">Tech Stack</a>
-          <a href="https://github.com/yourusername/quiz-platform" target="_blank" rel="noreferrer" className="hover:text-black transition-colors">GitHub</a>
+          <a href="https://github.com/shrey8250/quizora-ai" target="_blank" rel="noreferrer" className="hover:text-black transition-colors">GitHub</a>
         </div>
         <div>
            {/* Changed to "Host Login" to reduce redundancy with the hero button */}
@@ -137,7 +137,7 @@ export default function Home() {
       {/* Simple Footer */}
       <footer className="max-w-7xl mx-auto px-8 pt-8 flex justify-between items-center text-black/40 font-bold text-sm">
         <p>&copy; {new Date().getFullYear()} QUIZORA AI. Built for the web.</p>
-        <a href="https://github.com/yourusername/quiz-platform" className="hover:text-black transition-colors">View Source</a>
+        <a href="https://github.com/shrey8250/quizora-ai" className="hover:text-black transition-colors">View Source</a>
       </footer>
 
     </div>
