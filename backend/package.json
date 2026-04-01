@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "patch-package",
+   "postinstall": "patch-package",
     "build": "tsc -b",
     "start": "node dist/index.js",
+    "start:worker": "node dist/workers/aiWorker.js",
     "dev:server": "npx ts-node src/index.ts",
     "dev:worker": "npx ts-node src/workers/aiWorker.ts",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:worker\""
