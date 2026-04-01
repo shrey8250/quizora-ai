@@ -1,0 +1,17 @@
+# Ignore node_modules in any folder
+node_modules/
+
+# Ignore environment variables (passwords/keys)
+.env
+.env.local
+.env.*
+
+# Ignore Mac system files
+.DS_Store
+
+# Build outputs (Vite generates this when we build the frontend)
+dist/
+build/
+
+# IDE and Editor files
+.vscode/
