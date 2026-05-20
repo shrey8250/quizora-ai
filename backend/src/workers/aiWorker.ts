@@ -53,7 +53,7 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
   const vectorCollection = mongoose.connection.collection("pdf_vectors");
   const embeddings = new GeminiEmbeddings();
   
-  let vectorStore;
+  let vectorStore: MongoDBAtlasVectorSearch;
 
   if (!isCached) {
     console.log("Downloading and Embedding PDF for the first time....");
@@ -66,14 +66,14 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
     const docs = await splitter.createDocuments([pdfData.text]);
 
     // Tag each chunk with the PDF URL so we can filter searches later
-    const docsWithMetadata = docs.map(doc => ({
+    const docsWithMetadata = docs.map((doc: any) => ({
       ...doc,
       metadata: { ...doc.metadata, pdfUrl }
     }));
 
     // Store vectors permanently in MongoDB
     vectorStore = await MongoDBAtlasVectorSearch.fromDocuments(docsWithMetadata, embeddings, {
-      collection: vectorCollection,
+      collection: vectorCollection as any,
       indexName: "vector_index", 
       textKey: "text",
       embeddingKey: "embedding",
@@ -87,7 +87,7 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
     
     //Connect directly to existing MongoDB vectors
     vectorStore = new MongoDBAtlasVectorSearch(embeddings, {
-      collection: vectorCollection,
+      collection: vectorCollection as any,
       indexName: "vector_index",
       textKey: "text",
       embeddingKey: "embedding",
