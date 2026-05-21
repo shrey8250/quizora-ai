@@ -14,17 +14,28 @@ const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 
 dotenv.config();
 
-mongoose.connect(process.env.MONGO_URL as string);
+mongoose.connect(process.env.MONGO_URL as string)
+  .then(() => console.log("Worker connected to MongoDB successfully!"))
+  .catch((err) => console.error("Worker MongoDB connection error:", err));
 
 class GeminiEmbeddings extends Embeddings {
   private apiKey: string;
+  
   constructor() {
     super({});
     this.apiKey = process.env.GOOGLE_API_KEY as string;
   }
+  
   async embedDocuments(texts: string[]) {
-    return Promise.all(texts.map(t => this.embedQuery(t)));
+    const embeddings: number[][] = [];
+    for (let i = 0; i < texts.length; i++) {
+      const embedding = await this.embedQuery(texts[i]);
+      embeddings.push(embedding);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return embeddings;
   }
+  
   async embedQuery(text: string) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${this.apiKey}`,
@@ -40,17 +51,18 @@ class GeminiEmbeddings extends Embeddings {
 }
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://127.0.0.1:6379", {
-  maxRetriesPerRequest: null
+  maxRetriesPerRequest: null,
+  family: 4,
+  tls: { rejectUnauthorized: false }
 });
 
 export const worker = new Worker("ai-generation-queue", async (job: Job) => {
   const { quizId, pdfUrl, topic } = job.data;
 
-  // 1. Check Redis to see if we have processed this PDF before
   const isCached = await connection.get(`pdf:${pdfUrl}`);
   
-  // 2. Connect to a dedicated MongoDB collection for vectors
-  const vectorCollection = mongoose.connection.collection("pdf_vectors");
+  const nativeClient = mongoose.connection.getClient() as any;
+  const vectorCollection = nativeClient.db().collection("pdf_vectors");
   const embeddings = new GeminiEmbeddings();
   
   let vectorStore: MongoDBAtlasVectorSearch;
@@ -65,29 +77,25 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 2000, chunkOverlap: 300 });
     const docs = await splitter.createDocuments([pdfData.text]);
 
-    // Tag each chunk with the PDF URL so we can filter searches later
     const docsWithMetadata = docs.map((doc: any) => ({
       ...doc,
       metadata: { ...doc.metadata, pdfUrl }
     }));
 
-    // Store vectors permanently in MongoDB
     vectorStore = await MongoDBAtlasVectorSearch.fromDocuments(docsWithMetadata, embeddings, {
-      collection: vectorCollection as any,
+      collection: vectorCollection,
       indexName: "vector_index", 
       textKey: "text",
       embeddingKey: "embedding",
     });
 
-    // Save to Redis Cache (Expires in 7 days to save space)
     await connection.set(`pdf:${pdfUrl}`, "processed", "EX", 60 * 60 * 24 * 7);
 
   } else {
     console.log("IN REDIS CACHE! Skipping download and embedding.");
     
-    //Connect directly to existing MongoDB vectors
     vectorStore = new MongoDBAtlasVectorSearch(embeddings, {
-      collection: vectorCollection as any,
+      collection: vectorCollection,
       indexName: "vector_index",
       textKey: "text",
       embeddingKey: "embedding",
@@ -96,7 +104,6 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
 
   console.log(`Searching for chunks related to: ${topic}`);
   
-  // Only search chunks that belong to THIS specific PDF
   const relevantDocs = await vectorStore.similaritySearch(topic, 5, {
     preFilter: { pdfUrl: { $eq: pdfUrl } }
   }); 

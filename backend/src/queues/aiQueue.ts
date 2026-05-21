@@ -6,7 +6,9 @@ dotenv.config();
 
 // 1. Establish the connection to Redis
 const connection = new IORedis(process.env.REDIS_URL || "redis://127.0.0.1:6379", {
-    maxRetriesPerRequest: null 
+    maxRetriesPerRequest: null,
+    family: 4,
+    tls: { rejectUnauthorized: false }
 });
 
 // 2. Create the Queue
