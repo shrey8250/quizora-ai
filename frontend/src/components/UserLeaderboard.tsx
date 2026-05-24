@@ -1,23 +1,24 @@
+import type { LeaderboardEntry } from "../types/quiz";
+
+type UserLeaderboardProps = {
+  leaderboard: LeaderboardEntry[];
+  currentPlayerName?: string;
+};
+
 export default function UserLeaderboard({
   leaderboard,
-  currentPlayerName
-}: {
-  leaderboard: { name: string; score: number }[];
-  currentPlayerName?: string;
-}) {
+  currentPlayerName,
+}: UserLeaderboardProps) {
   // Ensure the leaderboard is sorted by score (highest first)
   const sortedLeaderboard = [...leaderboard].sort((a, b) => b.score - a.score);
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-8 md:py-12 flex flex-col items-center animate-fade-in min-h-[80vh]">
       
-      {/* 1. MAIN LEADERBOARD CARD */}
       <div className="w-full bg-white rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] border border-gray-100 flex flex-col overflow-hidden">
-
-        {/* 2. CELEBRATORY HEADER */}
+        
         <div className="bg-[#72D177] px-8 py-12 md:py-16 flex flex-col items-center text-center relative overflow-hidden">
           
-          {/* Decorative glow accents */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#E5F156]/30 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
@@ -28,12 +29,13 @@ export default function UserLeaderboard({
           <h1 className="relative z-10 text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight mb-3">
             Final Standings
           </h1>
+
           <p className="relative z-10 font-bold text-sm md:text-base text-gray-800/80 uppercase tracking-widest">
-            The results are in. Let's see who dominated.
+            The results are in. Let&apos;s see who dominated.
           </p>
         </div>
 
-        {/* 3. LEADERBOARD LIST */}
+        {/*  LEADERBOARD LIST */}
         <div className="p-6 md:p-12 bg-white flex flex-col gap-4 relative z-20 -mt-6 rounded-t-[3rem]">
           {sortedLeaderboard.map((player, index) => {
             const isFirst = index === 0;
@@ -68,7 +70,13 @@ export default function UserLeaderboard({
                         : "bg-gray-50 text-gray-400"
                     }`}
                   >
-                    {isFirst ? "1" : isSecond ? "2" : isThird ? "3" : index + 1}
+                    {isFirst
+                      ? "1"
+                      : isSecond
+                      ? "2"
+                      : isThird
+                      ? "3"
+                      : index + 1}
                   </div>
 
                   <div className="flex flex-col">
@@ -79,9 +87,10 @@ export default function UserLeaderboard({
                     >
                       {player.name}
                     </span>
+
                     {isCurrentPlayer && (
                       <span className="font-bold text-[10px] uppercase tracking-widest text-gray-400 mt-1">
-                        That's You!
+                        That&apos;s You!
                       </span>
                     )}
                   </div>
@@ -96,6 +105,7 @@ export default function UserLeaderboard({
                   >
                     {player.score}
                   </span>
+
                   <span className="font-bold text-[10px] uppercase tracking-widest text-gray-400">
                     Points
                   </span>
@@ -108,7 +118,9 @@ export default function UserLeaderboard({
           {sortedLeaderboard.length === 0 && (
             <div className="text-center py-12">
               <span className="text-4xl mb-4 block">👻</span>
-              <h3 className="text-xl font-black text-gray-900">No scores yet!</h3>
+              <h3 className="text-xl font-black text-gray-900">
+                No scores yet!
+              </h3>
             </div>
           )}
         </div>

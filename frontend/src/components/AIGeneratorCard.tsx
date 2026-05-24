@@ -1,46 +1,86 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import type {
+  CloudinaryUploadResponse,
+  FieldErrors,
+  QuizResponse,
+  StatusMessage,
+} from "../types/quiz";
+import { getApiErrorMessage, mapValidationErrors } from "../utils/apiErrors";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-export default function AIGeneratorCard({ quizId, token }: { quizId: string, token: string }) {
+type AIGeneratorCardProps = {
+  quizId: string;
+  token: string;
+};
+
+export default function AIGeneratorCard({
+  quizId,
+  token,
+}: AIGeneratorCardProps) {
   const pdfFileRef = useRef<HTMLInputElement>(null);
   const topicRef = useRef<HTMLInputElement>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Added dynamic status + field validation state
-  const [statusMsg, setStatusMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  // AI GENERATOR FUNCTION
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
+
   const handleAIGenerate = async () => {
-    setStatusMsg(null); // Reset status
-    setFieldErrors({}); // Reset field errors
+    setStatusMsg(null);
+    setFieldErrors({});
 
     const file = pdfFileRef.current?.files?.[0];
-    const topic = topicRef.current?.value;
+    const topic = topicRef.current?.value.trim() || "";
 
-    //UI Error instead of alert
     if (!file || !topic) {
-      return setStatusMsg({ type: "error", text: "Please select a PDF and enter a topic." });
+      setStatusMsg({
+        type: "error",
+        text: "Please select a PDF and enter a topic.",
+      });
+      return;
+    }
+
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+
+    if (!uploadPreset || !cloudName) {
+      setStatusMsg({
+        type: "error",
+        text: "Cloudinary environment variables are missing.",
+      });
+      return;
     }
 
     setIsGenerating(true);
 
     try {
       // Check how many questions we have BEFORE generating
-      const initialQuizRes = await axios.get(`${API_URL}/api/quiz/${quizId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const initialQuizRes = await axios.get<QuizResponse>(
+        `${API_URL}/api/quiz/${quizId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       const initialCount = initialQuizRes.data.questions.length;
 
       // Upload PDF to Cloudinary
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+      formData.append("upload_preset", uploadPreset);
 
-      const cloudRes = await axios.post(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/raw/upload`,
+      const cloudRes = await axios.post<CloudinaryUploadResponse>(
+        `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`,
         formData
       );
 
@@ -53,46 +93,75 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      let attempts = 0;
+      const maxAttempts = 40;
+
       // Poll the database every 3 seconds until the worker finishes
-      const checkInterval = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
+        attempts += 1;
+
         try {
-          const checkRes = await axios.get(`${API_URL}/api/quiz/${quizId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const checkRes = await axios.get<QuizResponse>(
+            `${API_URL}/api/quiz/${quizId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
           const currentCount = checkRes.data.questions.length;
 
           // If the count increased, the worker is done
           if (currentCount > initialCount) {
-            clearInterval(checkInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+
             setIsGenerating(false);
 
             setStatusMsg({
               type: "success",
-              text: `Generated ${currentCount - initialCount} questions!`
+              text: `Generated ${currentCount - initialCount} questions!`,
             });
 
             // Clear the inputs using refs
             if (pdfFileRef.current) pdfFileRef.current.value = "";
             if (topicRef.current) topicRef.current.value = "";
           }
-        } catch (err) {
-          console.error("Error checking quiz status", err);
+
+          if (attempts >= maxAttempts) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+
+            setIsGenerating(false);
+
+            setStatusMsg({
+              type: "error",
+              text: "AI generation timed out. Please try again.",
+            });
+          }
+        } catch (error: unknown) {
+          console.error("Error checking quiz status", error);
         }
       }, 3000);
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
 
-      //  Map Zod details to our inputs
-      if (error.response?.data?.details) {
-        const mappedErrors: { [key: string]: string } = {};
-        error.response.data.details.forEach((detail: any) => {
-          mappedErrors[detail.field] = detail.message;
-        });
+      const mappedErrors = mapValidationErrors(error);
+
+      if (mappedErrors) {
         setFieldErrors(mappedErrors);
-        setStatusMsg({ type: "error", text: "Please fix the highlighted fields." });
+        setStatusMsg({
+          type: "error",
+          text: "Please fix the highlighted fields.",
+        });
       } else {
-        setStatusMsg({ type: "error", text: "AI Generation failed." });
+        setStatusMsg({
+          type: "error",
+          text: getApiErrorMessage(error, "AI Generation failed."),
+        });
       }
 
       setIsGenerating(false);
@@ -101,7 +170,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
 
   return (
     <div className="flex flex-col gap-4">
-      {/*  Status Banner */}
+      {/* Status Banner */}
       {statusMsg && (
         <div
           className={`p-3 rounded-xl text-sm font-bold border ${
@@ -119,7 +188,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
         type="file"
         accept="application/pdf"
         ref={pdfFileRef}
-        title="" /* THIS LINE FIXES THE GHOST TOOLTIP ✨ */
+        title=""
         className="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#72D177]/20 file:text-[#2E7D32] hover:file:bg-[#72D177]/30 cursor-pointer outline-none transition-colors"
       />
 
@@ -130,11 +199,16 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
           placeholder="Topic (e.g. React Hooks)"
           ref={topicRef}
           className={`w-full p-4 rounded-xl bg-gray-50 border-2 font-medium text-gray-900 placeholder-gray-400 outline-none transition-all focus:bg-white ${
-            fieldErrors.topic ? "border-red-400" : "border-transparent focus:border-black"
+            fieldErrors.topic
+              ? "border-red-400"
+              : "border-transparent focus:border-black"
           }`}
         />
+
         {fieldErrors.topic && (
-          <p className="text-red-500 text-xs mt-1 font-bold">{fieldErrors.topic}</p>
+          <p className="text-red-500 text-xs mt-1 font-bold">
+            {fieldErrors.topic}
+          </p>
         )}
       </div>
 

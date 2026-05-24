@@ -4,6 +4,14 @@ import UserWaitingRoom from "../components/UserWaitingRoom";
 import UserLiveQuiz from "../components/UserLiveQuiz";
 import UserLeaderboard from "../components/UserLeaderboard";
 
+import type {
+  LeaderboardEntry,
+  QuizOption,
+  QuizQuestion,
+  UserClientMessage,
+  UserServerMessage,
+} from "../types/quiz";
+
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
 
 export default function User() {
@@ -11,59 +19,63 @@ export default function User() {
   const nameRef = useRef<HTMLInputElement>(null);
   const roomIdRef = useRef<HTMLInputElement>(null);
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
-  const [error, setError] = useState<string | null>(null); // Error state
-  
-  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [hasJoined, setHasJoined] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
 
   const [deadline, setDeadline] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(10);
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
+  const ws = new WebSocket(WS_URL);
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      socketRef.current = ws;
-    };
+  ws.onopen = () => {
+    setIsConnected(true);
+    socketRef.current = ws;
+  };
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === "NEXT_QUESTION") {
-        console.log("Got a new question!", data.payload.question);
+  ws.onmessage = (event: MessageEvent<string>) => {
+    const data = JSON.parse(event.data) as UserServerMessage;
 
-        // Shuffling options (same as your old logic)
-        const incomingQuestion = data.payload.question;
-        incomingQuestion.options = [...incomingQuestion.options].sort(() => Math.random() - 0.5);
-        
-        setCurrentQuestion(incomingQuestion); // Save shuffled question
-        setSelectedOption(null); 
-        setLeaderboard(null);    
-        setDeadline(data.payload.deadline); 
-      }
+    if (data.type === "NEXT_QUESTION") {
+      const incomingQuestion: QuizQuestion = {
+        ...data.payload.question,
+        options: [...data.payload.question.options].sort(() => Math.random() - 0.5),
+      };
 
-      if (data.type === "LEADERBOARD") {
-        setLeaderboard(data.payload.leaderboard);
-        setCurrentQuestion(null); 
-        setDeadline(null);        
-      }
-    };
+      setCurrentQuestion(incomingQuestion); //save shuffled question
+      setSelectedOption(null);
+      setLeaderboard(null);
+      setDeadline(data.payload.deadline);
+    }
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      socketRef.current = null;
-    };
+    if (data.type === "LEADERBOARD") {
+      setLeaderboard(data.payload.leaderboard);
+      setCurrentQuestion(null);
+      setDeadline(null);
+    }
+  };
 
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, []);
+  ws.onclose = () => {
+    setIsConnected(false);
+    socketRef.current = null;
+  };
+
+  ws.onerror = () => {
+    setIsConnected(false);
+    setError("Connection error. Please refresh and try again.");
+  };
+
+  return () => {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close();
+    }
+  };
+}, []);
 
   // The Synchronous Timer Logic (same as your original)
   useEffect(() => {
@@ -83,49 +95,52 @@ export default function User() {
   }, [deadline]);
 
   const handleJoinRoom = () => {
-    setError(null); // Reset error
+  setError(null);
 
-    const name = nameRef.current?.value.trim();
-    const roomId = roomIdRef.current?.value.trim();
+  const name = nameRef.current?.value.trim();
+  const roomId = roomIdRef.current?.value.trim();
 
-    if (!name || !roomId) {
-      // Updated text (Gemini change)
-      setError("Please enter both a Nickname and a Room PIN");
-      return;
-    }
-    
-    if (socketRef.current && isConnected) {
-      const message = {
-        type: "JOIN_ROOM",
-        payload: { roomId, name }
-      };
-      
-      socketRef.current.send(JSON.stringify(message));
-      setHasJoined(true);
-    } else {
-      setError("Still connecting to server... please wait.");
-    }
-  };
+  if (!name || !roomId) {
+    setError("Please enter both a Nickname and a Room PIN");
+    return;
+  }
 
-  const handleAnswerClick = (option: any) => {
-    // Prevent multiple answers or answering after timeout
-    if (selectedOption || timeLeft === 0) return; 
+  if (socketRef.current && isConnected) {
+    const message: UserClientMessage = {
+      type: "JOIN_ROOM",
+      payload: { roomId, name },
+    };
 
-    setSelectedOption(option._id || option.text);
+    socketRef.current.send(JSON.stringify(message));
+    setHasJoined(true);
+  } else {
+    setError("Still connecting to server... please wait.");
+  }
+};
 
-    if (socketRef.current && isConnected) {
-      socketRef.current.send(JSON.stringify({
-        type: "SUBMIT_ANSWER",
-        payload: { answerText: option.text } // Send actual answer text
-      }));
-    }
-  };
+
+  const handleAnswerClick = (option: QuizOption) => {
+  
+  // Prevent multiple answers or answering after timeout
+  if (selectedOption || timeLeft === 0) return;
+
+  setSelectedOption(option._id || option.text);
+
+  if (socketRef.current && isConnected) {
+    const message: UserClientMessage = {
+      type: "SUBMIT_ANSWER",
+      payload: { answerText: option.text },
+    };
+
+    socketRef.current.send(JSON.stringify(message));
+  }
+};
 
   return (
-    // ✨ Updated UI (light theme + modern styling)
+    //  Updated UI (light theme + modern styling)
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F7F7] text-gray-900 font-sans p-4 selection:bg-[#E5F156] selection:text-black relative">
       
-      {/* ✨ Logo (new addition from Gemini UI) */}
+      {/*  Logo (new addition from Gemini UI) */}
       {!hasJoined && (
         <div 
           className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center gap-2 cursor-pointer" 
@@ -150,7 +165,10 @@ export default function User() {
           error={error}
         />
       ) : leaderboard ? (
-        <UserLeaderboard leaderboard={leaderboard} />
+        <UserLeaderboard
+           leaderboard={leaderboard}
+           currentPlayerName={nameRef.current?.value || undefined}
+        />
       ) : !currentQuestion ? (
         <UserWaitingRoom playerName={nameRef.current?.value || "Player"} />
       ) : (

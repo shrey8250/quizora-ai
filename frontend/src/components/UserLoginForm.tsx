@@ -1,16 +1,20 @@
+import type { RefObject } from "react";
+
+type UserLoginFormProps = {
+  nameRef: RefObject<HTMLInputElement | null>;
+  roomIdRef: RefObject<HTMLInputElement | null>;
+  isConnected: boolean;
+  handleJoinRoom: () => void;
+  error?: string | null;
+};
+
 export default function UserLoginForm({
   nameRef,
   roomIdRef,
   isConnected,
   handleJoinRoom,
-  error
-}: {
-  nameRef: any;
-  roomIdRef: any;
-  isConnected: boolean;
-  handleJoinRoom: () => void;
-  error?: string | null;
-}) {
+  error,
+}: UserLoginFormProps) {
   return (
     // Updated: Split screen premium UI (left illustration + right form)
     <div className="flex flex-col md:flex-row bg-white rounded-[2.5rem] shadow-2xl shadow-black/5 w-full max-w-5xl overflow-hidden border border-black/5 animate-fade-in">

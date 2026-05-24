@@ -5,233 +5,287 @@ import AuthCard from "../components/AuthCard";
 import AIGeneratorCard from "../components/AIGeneratorCard";
 import WaitingLobby from "../components/WaitingLobby";
 import LiveDashboard from "../components/LiveDashboard";
-import UserLeaderboard from "../components/UserLeaderboard"; // Imported Leaderboard
+import UserLeaderboard from "../components/UserLeaderboard"; 
+
+import type {
+  AdminClientMessage,
+  AdminServerMessage,
+  CreateQuizResponse,
+  FieldErrors,
+  LeaderboardEntry,
+  QuizOption,
+  QuizQuestion,
+  QuizResponse,
+  StatusMessage,
+} from "../types/quiz";
+import { mapValidationErrors } from "../utils/apiErrors";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
 
-export default function Admin() {
-const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
+const createEmptyOptions = (): QuizOption[] => [
+  { text: "", isCorrect: true },
+  { text: "", isCorrect: false },
+  { text: "", isCorrect: false },
+  { text: "", isCorrect: false },
+];
 
-// Dynamic status + field validation states
-const [statusMsg, setStatusMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
-const [quizFieldErrors, setQuizFieldErrors] = useState<{ [key: string]: string }>({});
-const [questionFieldErrors, setQuestionFieldErrors] = useState<{ [key: string]: string }>({});
+export default function Admin() {
+const [token, setToken] = useState<string>(localStorage.getItem("adminToken") || "");
+
+const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
+const [quizFieldErrors, setQuizFieldErrors] = useState<FieldErrors>({});
+const [questionFieldErrors, setQuestionFieldErrors] = useState<FieldErrors>({});
 
 const titleRef = useRef<HTMLInputElement>(null);
 const descriptionRef = useRef<HTMLInputElement>(null);
 const questionTextRef = useRef<HTMLInputElement>(null);
 const socketRef = useRef<WebSocket | null>(null);
 
-const [quizId, setQuizId] = useState("");
-const [options, setOptions] = useState([
-{ text: "", isCorrect: true },
-{ text: "", isCorrect: false },
-{ text: "", isCorrect: false },
-{ text: "", isCorrect: false },
-]);
+const [quizId, setQuizId] = useState<string>("");
+const [options, setOptions] = useState<QuizOption[]>(createEmptyOptions());
 
-const [isLobby, setIsLobby] = useState(false);
+const [isLobby, setIsLobby] = useState<boolean>(false);
 const [players, setPlayers] = useState<string[]>([]);
-const [isLive, setIsLive] = useState(false);
-const [liveQuestions, setLiveQuestions] = useState<any[]>([]);
-const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-const [leaderboard, setLeaderboard] = useState<any[] | null>(null); // Added Leaderboard State
+const [isLive, setIsLive] = useState<boolean>(false);
+const [isSocketReady, setIsSocketReady] = useState<boolean>(false);
+const [liveQuestions, setLiveQuestions] = useState<QuizQuestion[]>([]);
+const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
 
 const handleLogout = () => {
-setToken("");
-localStorage.removeItem("adminToken");
-setQuizId("");
-setIsLobby(false);
-setIsLive(false);
-setStatusMsg(null);
-setLeaderboard(null); 
-socketRef.current?.close();
-socketRef.current = null;
+  socketRef.current?.close();
+  socketRef.current = null;
+
+  setIsSocketReady(false);
+  setToken("");
+  localStorage.removeItem("adminToken");
+  setQuizId("");
+  setIsLobby(false);
+  setIsLive(false);
+  setStatusMsg(null);
+  setLeaderboard(null);
+  setPlayers([]);
+  setLiveQuestions([]);
+  setCurrentQuestionIndex(0);
 };
 
 const handleCreateQuiz = async () => {
-setStatusMsg(null); // Reset messages
-setQuizFieldErrors({}); // Reset field errors
+  setStatusMsg(null);
+  setQuizFieldErrors({});
 
-const title = titleRef.current?.value;
-const description = descriptionRef.current?.value;
+  const title = titleRef.current?.value.trim() || "";
+  const description = descriptionRef.current?.value.trim() || "";
 
-// UI Error instead of alert
-if (!title) return setStatusMsg({ type: "error", text: "Please enter a title." });
+  if (!title) {
+    setStatusMsg({ type: "error", text: "Please enter a title." });
+    return;
+  }
 
-try {
-const response = await axios.post(
-`${API_URL}/api/quiz`,
-{ title, description },
-{
-headers: { Authorization: `Bearer ${token}` },
-}
-);
+  try {
+    const response = await axios.post<CreateQuizResponse>(
+      `${API_URL}/api/quiz`,
+      { title, description },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
 
-if (response.data.quizId) {
-setQuizId(response.data.quizId);
-setStatusMsg({ type: "success", text: "Room ready. Add some questions!" });
-}
-} catch (error: any) {
-console.error("Failed to create quiz:", error);
+    if (response.data.quizId) {
+      setQuizId(response.data.quizId);
+      setStatusMsg({ type: "success", text: "Room ready. Add some questions!" });
+    }
+  } catch (error: unknown) {
+    console.error("Failed to create quiz:", error);
 
-// Map Zod Quiz details
-if (error.response?.data?.details) {
-const mappedErrors: { [key: string]: string } = {};
-error.response.data.details.forEach((detail: any) => {
-mappedErrors[detail.field] = detail.message;
-});
-setQuizFieldErrors(mappedErrors);
-setStatusMsg({ type: "error", text: "Check the fields below." });
-} else {
-setStatusMsg({ type: "error", text: "Failed to create quiz." });
-}
-}
+    const mappedErrors = mapValidationErrors(error);
+
+    if (mappedErrors) {
+      setQuizFieldErrors(mappedErrors);
+      setStatusMsg({ type: "error", text: "Check the fields below." });
+    } else {
+      setStatusMsg({ type: "error", text: "Failed to create quiz." });
+    }
+  }
 };
 
 const handleAddQuestion = async () => {
-setStatusMsg(null); // Reset messages
-setQuestionFieldErrors({}); // Reset field errors
+  setStatusMsg(null);
+  setQuestionFieldErrors({});
 
-const text = questionTextRef.current?.value;
+  const text = questionTextRef.current?.value.trim() || "";
 
-// UI Error instead of alert
-if (!text) return setStatusMsg({ type: "error", text: "Question text is required." });
+  if (!text) {
+    setStatusMsg({ type: "error", text: "Question text is required." });
+    return;
+  }
 
-try {
-const response = await axios.post(
-`${API_URL}/api/quiz/${quizId}/question`,
-{ text, options },
-{
-headers: { Authorization: `Bearer ${token}` },
-}
-);
+  try {
+    const response = await axios.post<QuizResponse>(
+      `${API_URL}/api/quiz/${quizId}/question`,
+      { text, options },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
 
-if (response.status === 201) {
-// UI Success instead of alert
-setStatusMsg({ type: "success", text: "Saved to bank!" });
-if (questionTextRef.current) questionTextRef.current.value = "";
-setOptions([
-{ text: "", isCorrect: true },
-{ text: "", isCorrect: false },
-{ text: "", isCorrect: false },
-{ text: "", isCorrect: false },
-]);
-}
-} catch (error: any) {
-console.error("Failed to add question:", error);
+    if (response.status === 201) {
+      setStatusMsg({ type: "success", text: "Saved to bank!" });
 
-// Map Zod Question details
-if (error.response?.data?.details) {
-const mappedErrors: { [key: string]: string } = {};
-error.response.data.details.forEach((detail: any) => {
-mappedErrors[detail.field] = detail.message;
-});
-setQuestionFieldErrors(mappedErrors);
-setStatusMsg({ type: "error", text: "Check the fields below." });
-} else {
-setStatusMsg({ type: "error", text: "Failed to add question." });
-}
-}
+      if (questionTextRef.current) questionTextRef.current.value = "";
+
+      setOptions(createEmptyOptions());
+    }
+  } catch (error: unknown) {
+    console.error("Failed to add question:", error);
+
+    const mappedErrors = mapValidationErrors(error);
+
+    if (mappedErrors) {
+      setQuestionFieldErrors(mappedErrors);
+      setStatusMsg({ type: "error", text: "Check the fields below." });
+    } else {
+      setStatusMsg({ type: "error", text: "Failed to add question." });
+    }
+  }
 };
 
 const updateOptionText = (index: number, text: string) => {
-const newOptions = [...options];
-newOptions[index].text = text;
-setOptions(newOptions);
+  setOptions((prevOptions) =>
+    prevOptions.map((option, currentIndex) =>
+      currentIndex === index ? { ...option, text } : option
+    )
+  );
 };
+
 
 const handleOpenLobby = async () => {
-setStatusMsg(null); // Reset messages
+  setStatusMsg(null);
+  setIsSocketReady(false);
 
-try {
-const response = await axios.get(`${API_URL}/api/quiz/${quizId}`, {
-headers: { Authorization: `Bearer ${token}` },
-});
-const data = response.data;
+  try {
+    const response = await axios.get<QuizResponse>(`${API_URL}/api/quiz/${quizId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-// UI Error instead of alert
-if (data.questions.length === 0) {
-setStatusMsg({ type: "error", text: "Add a question first!" });
-return;
-}
+    const data = response.data;
 
-setLiveQuestions(data.questions);
-setIsLobby(true);
+    if (data.questions.length === 0) {
+      setStatusMsg({ type: "error", text: "Add a question first!" });
+      return;
+    }
 
-const ws = new WebSocket(WS_URL);
-ws.onopen = () => {
-socketRef.current = ws;
-ws.send(JSON.stringify({ type: "JOIN_ADMIN", payload: { roomId: quizId } }));
-};
+    setLiveQuestions(data.questions);
+    setIsLobby(true);
 
-ws.onmessage = (event) => {
-const msg = JSON.parse(event.data);
-if (msg.type === "LOBBY_UPDATE") {
-setPlayers(msg.payload.players);
-} else if (msg.type === "LEADERBOARD") {
-//  Catch leaderboard event and transition state
-setLeaderboard(msg.payload.leaderboard);
-setIsLive(false);
-setIsLobby(false);
-}
-};
-} catch (error) {
-console.error("Failed to open lobby", error);
-setStatusMsg({ type: "error", text: "Failed to open lobby." });
-}
+    const ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      socketRef.current = ws;
+      setIsSocketReady(true);
+
+      const message: AdminClientMessage = {
+        type: "JOIN_ADMIN",
+        payload: { roomId: quizId },
+      };
+
+      ws.send(JSON.stringify(message));
+    };
+
+    ws.onmessage = (event: MessageEvent<string>) => {
+      const msg = JSON.parse(event.data) as AdminServerMessage;
+
+      if (msg.type === "LOBBY_UPDATE") {
+        setPlayers(msg.payload.players);
+      } else if (msg.type === "LEADERBOARD") {
+        setLeaderboard(msg.payload.leaderboard);
+        setIsLive(false);
+        setIsLobby(false);
+      }
+    };
+
+    ws.onclose = () => {
+      socketRef.current = null;
+      setIsSocketReady(false);
+    };
+
+    ws.onerror = () => {
+      setIsSocketReady(false);
+      setStatusMsg({ type: "error", text: "Socket connection failed." });
+    };
+  } catch (error: unknown) {
+    console.error("Failed to open lobby", error);
+    setStatusMsg({ type: "error", text: "Failed to open lobby." });
+  }
 };
 
 const handleStartGameFromLobby = () => {
-if (!socketRef.current) return;
+  if (!socketRef.current || !isSocketReady) {
+    setStatusMsg({ type: "error", text: "Socket is not ready yet." });
+    return;
+  }
 
-setIsLobby(false);
-setIsLive(true);
-setCurrentQuestionIndex(0);
+  if (liveQuestions.length === 0) {
+    setStatusMsg({ type: "error", text: "No questions available." });
+    return;
+  }
 
-socketRef.current.send(
-JSON.stringify({
-type: "NEXT_QUESTION",
-payload: {
-roomId: quizId,
-question: liveQuestions[0],
-deadline: Date.now() + 10 * 1000,
-},
-})
-);
+  setCurrentQuestionIndex(0);
+  setIsLobby(false);
+  setIsLive(true);
+
+  const message: AdminClientMessage = {
+    type: "NEXT_QUESTION",
+    payload: {
+      roomId: quizId,
+      question: liveQuestions[0],
+      deadline: Date.now() + 10 * 1000,
+    },
+  };
+
+  socketRef.current.send(JSON.stringify(message));
 };
+
 
 const handleNextQuestion = () => {
-const nextIndex = currentQuestionIndex + 1;
+  const nextIndex = currentQuestionIndex + 1;
 
-if (nextIndex < liveQuestions.length && socketRef.current) {
-setCurrentQuestionIndex(nextIndex);
+  if (!socketRef.current || !isSocketReady) {
+    setStatusMsg({ type: "error", text: "Socket is not ready yet." });
+    return;
+  }
 
-socketRef.current.send(
-JSON.stringify({
-type: "NEXT_QUESTION",
-payload: {
-roomId: quizId,
-question: liveQuestions[nextIndex],
-deadline: Date.now() + 10 * 1000,
-},
-})
-);
-} else {
-alert("Game Over! No more questions.");
-}
+  if (nextIndex < liveQuestions.length) {
+    setCurrentQuestionIndex(nextIndex);
+
+    const message: AdminClientMessage = {
+      type: "NEXT_QUESTION",
+      payload: {
+        roomId: quizId,
+        question: liveQuestions[nextIndex],
+        deadline: Date.now() + 10 * 1000,
+      },
+    };
+
+    socketRef.current.send(JSON.stringify(message));
+  } else {
+    handleShowLeaderboard();
+  }
 };
 
+
 const handleShowLeaderboard = () => {
-if (socketRef.current) {
-socketRef.current.send(
-JSON.stringify({
-type: "SHOW_LEADERBOARD",
-payload: { roomId: quizId },
-})
-);
-}
+  if (!socketRef.current || !isSocketReady) {
+    setStatusMsg({ type: "error", text: "Socket is not ready yet." });
+    return;
+  }
+
+  const message: AdminClientMessage = {
+    type: "SHOW_LEADERBOARD",
+    payload: { roomId: quizId },
+  };
+
+  socketRef.current.send(JSON.stringify(message));
 };
 
 return (
@@ -285,6 +339,7 @@ isLobby ? (
 <WaitingLobby
 quizId={quizId}
 players={players}
+isSocketReady={isSocketReady}
 handleStartGameFromLobby={handleStartGameFromLobby}
 />
 </div>
