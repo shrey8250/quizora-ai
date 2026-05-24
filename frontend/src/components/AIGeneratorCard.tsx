@@ -8,11 +8,11 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
   const topicRef = useRef<HTMLInputElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // ✨ NEW: Added dynamic status + field validation state
+  // Added dynamic status + field validation state
   const [statusMsg, setStatusMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
-  // ✨ AI GENERATOR FUNCTION
+  // AI GENERATOR FUNCTION
   const handleAIGenerate = async () => {
     setStatusMsg(null); // Reset status
     setFieldErrors({}); // Reset field errors
@@ -20,7 +20,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
     const file = pdfFileRef.current?.files?.[0];
     const topic = topicRef.current?.value;
 
-    // ✨ UI Error instead of alert
+    //UI Error instead of alert
     if (!file || !topic) {
       return setStatusMsg({ type: "error", text: "Please select a PDF and enter a topic." });
     }
@@ -83,7 +83,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
     } catch (error: any) {
       console.error(error);
 
-      // ✨ NEW: Map Zod details to our inputs
+      //  Map Zod details to our inputs
       if (error.response?.data?.details) {
         const mappedErrors: { [key: string]: string } = {};
         error.response.data.details.forEach((detail: any) => {
@@ -101,7 +101,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ✨ Status Banner */}
+      {/*  Status Banner */}
       {statusMsg && (
         <div
           className={`p-3 rounded-xl text-sm font-bold border ${
@@ -119,7 +119,7 @@ export default function AIGeneratorCard({ quizId, token }: { quizId: string, tok
         type="file"
         accept="application/pdf"
         ref={pdfFileRef}
-        title="" /* ✨ THIS LINE FIXES THE GHOST TOOLTIP ✨ */
+        title="" /* THIS LINE FIXES THE GHOST TOOLTIP ✨ */
         className="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#72D177]/20 file:text-[#2E7D32] hover:file:bg-[#72D177]/30 cursor-pointer outline-none transition-colors"
       />
 

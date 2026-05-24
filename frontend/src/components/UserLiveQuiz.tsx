@@ -17,7 +17,7 @@ export default function UserLiveQuiz({
   const hasAnswered = selectedOption !== null;
 
   return (
-    // ✨ Restored max-w-4xl constraint, but forced it to respect 100vh
+    //  Restored max-w-4xl constraint, but forced it to respect 100vh
     <div className="w-full max-w-4xl mx-auto h-full max-h-full flex flex-col justify-center animate-fade-in py-4">
       
       {/* 1. MAIN QUIZ STAGE (Flex column that cannot exceed its parent) */}
@@ -75,7 +75,7 @@ export default function UserLiveQuiz({
           </div>
         )}
 
-        {/* ✨ 4. QUESTION AREA (Flex-1 makes it stretch, overflow-y-auto enables scrolling for long text) */}
+        {/* 4. QUESTION AREA (Flex-1 makes it stretch, overflow-y-auto enables scrolling for long text) */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 md:px-12 text-center bg-white border-b border-gray-50 overflow-y-auto min-h-0">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-black leading-snug tracking-tight max-w-3xl mx-auto break-words py-2">
             {currentQuestion?.text}

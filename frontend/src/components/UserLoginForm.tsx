@@ -12,10 +12,10 @@ export default function UserLoginForm({
   error?: string | null;
 }) {
   return (
-    // ✨ Updated: Split screen premium UI (left illustration + right form)
+    // Updated: Split screen premium UI (left illustration + right form)
     <div className="flex flex-col md:flex-row bg-white rounded-[2.5rem] shadow-2xl shadow-black/5 w-full max-w-5xl overflow-hidden border border-black/5 animate-fade-in">
       
-      {/* ✨ Left Side: Illustration Panel (pure UI, no logic) */}
+      {/* Left Side: Illustration Panel (pure UI, no logic) */}
       <div className="hidden md:flex md:w-1/2 bg-[#72D177] relative items-center justify-center p-12">
         
         {/* Card-style animated illustration */}
@@ -46,7 +46,7 @@ export default function UserLoginForm({
         </div>
       </div>
 
-      {/* ✨ Right Side: Login Form (same logic as your original) */}
+      {/* Right Side: Login Form (same logic as your original) */}
       <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center bg-white">
         
         {/* Heading */}

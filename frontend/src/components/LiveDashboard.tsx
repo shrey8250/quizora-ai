@@ -16,7 +16,7 @@ export default function LiveDashboard({
   const isLastQuestion = currentQuestionIndex === liveQuestions.length - 1;
 
   return (
-    // ✨ 100vh Constraint Wrapper
+    //  100vh Constraint Wrapper
     <div className="w-full h-full flex flex-col animate-fade-in min-h-0 px-2 md:px-0 pb-4">
       
       {/* Main Application Card */}

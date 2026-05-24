@@ -148,13 +148,38 @@ wss.on("connection", (socket) => {
         userManager.setActiveQuestion(roomId, question);
 
         const deadline = Date.now() + 10 * 1000;
-        
-        userManager.broadcast(roomId, { 
-          type: "NEXT_QUESTION", 
-          payload: { question, deadline } 
-        });
-      }
 
+        // 1.Create a safe version of the question by removing 'isCorrect'
+        const sanitizedQuestion = {
+           ...question,
+         options: question.options.map((opt: any) => ({
+         text: opt.text,
+         _id: opt._id
+         }))
+       };
+
+        // 2. Fetch everyone in the room and send them the appropriate version
+        const users = userManager.getUsersInRoom(roomId);
+
+        
+        users.forEach(user => {
+           if (user.name === "host_admin_secret") {
+             // Admin gets the full question so their dashboard works
+           user.socket.send(JSON.stringify({
+             type: "NEXT_QUESTION",
+             payload: { question: question, deadline }
+           }));
+         } else {
+            // Players get the safe question so they can't cheat via DevTools
+            user.socket.send(JSON.stringify({
+              type: "NEXT_QUESTION",
+              payload: { question: sanitizedQuestion, deadline }
+          }));
+        }
+     });
+    }
+
+     
       if (data.type === "SUBMIT_ANSWER") {
 
         // validate payload

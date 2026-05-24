@@ -5,7 +5,7 @@ import AuthCard from "../components/AuthCard";
 import AIGeneratorCard from "../components/AIGeneratorCard";
 import WaitingLobby from "../components/WaitingLobby";
 import LiveDashboard from "../components/LiveDashboard";
-import UserLeaderboard from "../components/UserLeaderboard"; // ✨ Imported Leaderboard
+import UserLeaderboard from "../components/UserLeaderboard"; // Imported Leaderboard
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
@@ -36,7 +36,7 @@ const [players, setPlayers] = useState<string[]>([]);
 const [isLive, setIsLive] = useState(false);
 const [liveQuestions, setLiveQuestions] = useState<any[]>([]);
 const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-const [leaderboard, setLeaderboard] = useState<any[] | null>(null); // ✨ Added Leaderboard State
+const [leaderboard, setLeaderboard] = useState<any[] | null>(null); // Added Leaderboard State
 
 const handleLogout = () => {
 setToken("");
@@ -45,7 +45,9 @@ setQuizId("");
 setIsLobby(false);
 setIsLive(false);
 setStatusMsg(null);
-setLeaderboard(null); // ✨ Reset leaderboard on logout
+setLeaderboard(null); 
+socketRef.current?.close();
+socketRef.current = null;
 };
 
 const handleCreateQuiz = async () => {
@@ -169,7 +171,7 @@ const msg = JSON.parse(event.data);
 if (msg.type === "LOBBY_UPDATE") {
 setPlayers(msg.payload.players);
 } else if (msg.type === "LEADERBOARD") {
-// ✨ Catch leaderboard event and transition state
+//  Catch leaderboard event and transition state
 setLeaderboard(msg.payload.leaderboard);
 setIsLive(false);
 setIsLobby(false);
@@ -186,6 +188,7 @@ if (!socketRef.current) return;
 
 setIsLobby(false);
 setIsLive(true);
+setCurrentQuestionIndex(0);
 
 socketRef.current.send(
 JSON.stringify({
