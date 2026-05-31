@@ -7,9 +7,10 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 type AuthCardProps = {
   setToken: (token: string) => void;
+  sessionExpiredMsg?: string | null;
 };
 
-export default function AuthCard({ setToken }: AuthCardProps) {
+export default function AuthCard({ setToken, sessionExpiredMsg }: AuthCardProps) {
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -74,7 +75,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
     <div className="w-full bg-white rounded-[2.5rem] shadow-2xl shadow-black/10 flex flex-col md:flex-row overflow-hidden border border-black/5 min-h-[500px]">
       
       <div className="w-full md:w-5/12 bg-[#72D177] p-10 md:p-12 flex flex-col items-center justify-center text-center relative overflow-hidden">
-        
         <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-white/20 blur-3xl rounded-full pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-40 h-40 bg-black/10 blur-2xl rounded-full pointer-events-none"></div>
 
@@ -88,7 +88,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
             : "Set up your admin profile to start hosting live AI quizzes."}
         </p>
 
-        {/* Toggle Button */}
         <button
           type="button"
           onClick={() => {
@@ -102,13 +101,21 @@ export default function AuthCard({ setToken }: AuthCardProps) {
         </button>
       </div>
 
-     
       <div className="w-full md:w-7/12 bg-white p-10 md:p-16 flex flex-col justify-center items-center">
         <h3 className="text-3xl md:text-4xl font-black text-[#72D177] mb-8 text-center">
           {isLogin ? "Sign In to Workspace" : "Create Account"}
         </h3>
 
         
+        {sessionExpiredMsg && !error && (
+          <div className="w-full max-w-sm mb-6 bg-orange-50 border border-orange-100 px-4 py-3 rounded-xl flex items-start gap-3">
+            <span className="text-orange-500 mt-0.5">⏱️</span>
+            <p className="text-sm font-bold text-orange-600 leading-snug">
+              {sessionExpiredMsg}
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="w-full max-w-sm mb-6 bg-red-50 border border-red-100 px-4 py-3 rounded-xl flex items-start gap-3">
             <span className="text-red-500 mt-0.5">⚠️</span>
@@ -119,7 +126,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
         )}
 
         <form onSubmit={handleAuth} className="flex flex-col gap-4 w-full max-w-sm">
-          {/* Username Input */}
           <div className="flex flex-col">
             <div
               className={`flex items-center bg-gray-50 border-2 rounded-xl px-4 py-3 transition-colors ${
@@ -128,19 +134,8 @@ export default function AuthCard({ setToken }: AuthCardProps) {
                   : "border-gray-100 focus-within:bg-white focus-within:border-[#72D177]"
               }`}
             >
-              {/* User Icon */}
-              <svg
-                className="w-5 h-5 text-gray-400 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
+              <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
 
               <input
@@ -150,7 +145,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
                 className="w-full bg-transparent outline-none font-medium text-gray-900 placeholder:text-gray-400"
               />
             </div>
-
             {fieldErrors.username && (
               <span className="text-red-500 text-xs font-bold pl-2 mt-1 animate-fade-in">
                 {fieldErrors.username}
@@ -158,7 +152,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
             )}
           </div>
 
-          {/* Password Input */}
           <div className="flex flex-col">
             <div
               className={`flex items-center bg-gray-50 border-2 rounded-xl px-4 py-3 transition-colors ${
@@ -167,19 +160,8 @@ export default function AuthCard({ setToken }: AuthCardProps) {
                   : "border-gray-100 focus-within:bg-white focus-within:border-[#72D177]"
               }`}
             >
-              {/* Lock Icon */}
-              <svg
-                className="w-5 h-5 text-gray-400 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
+              <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
 
               <input
@@ -189,7 +171,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
                 className="w-full bg-transparent outline-none font-medium text-gray-900 placeholder:text-gray-400"
               />
             </div>
-
             {fieldErrors.password && (
               <span className="text-red-500 text-xs font-bold pl-2 mt-1 animate-fade-in">
                 {fieldErrors.password}
@@ -197,7 +178,6 @@ export default function AuthCard({ setToken }: AuthCardProps) {
             )}
           </div>
 
-          {/* Action Button */}
           <button
             type="submit"
             disabled={isLoading}

@@ -6,18 +6,20 @@ import type {
   QuizResponse,
   StatusMessage,
 } from "../types/quiz";
-import { getApiErrorMessage, mapValidationErrors } from "../utils/apiErrors";
+import { getApiErrorMessage, mapValidationErrors, isUnauthorized } from "../utils/apiErrors"; 
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 type AIGeneratorCardProps = {
   quizId: string;
   token: string;
+  onSessionExpired: () => void; 
 };
 
 export default function AIGeneratorCard({
   quizId,
   token,
+  onSessionExpired,
 }: AIGeneratorCardProps) {
   const pdfFileRef = useRef<HTMLInputElement>(null);
   const topicRef = useRef<HTMLInputElement>(null);
@@ -64,7 +66,6 @@ export default function AIGeneratorCard({
     setIsGenerating(true);
 
     try {
-      // Check how many questions we have BEFORE generating
       const initialQuizRes = await axios.get<QuizResponse>(
         `${API_URL}/api/quiz/${quizId}`,
         {
@@ -74,7 +75,6 @@ export default function AIGeneratorCard({
 
       const initialCount = initialQuizRes.data.questions.length;
 
-      // Upload PDF to Cloudinary
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", uploadPreset);
@@ -86,7 +86,6 @@ export default function AIGeneratorCard({
 
       const securePdfUrl = cloudRes.data.secure_url;
 
-      // Send PDF URL + topic to AI backend
       await axios.post(
         `${API_URL}/api/ai/generate`,
         { quizId, pdfUrl: securePdfUrl, topic },
@@ -96,7 +95,6 @@ export default function AIGeneratorCard({
       let attempts = 0;
       const maxAttempts = 40;
 
-      // Poll the database every 3 seconds until the worker finishes
       pollIntervalRef.current = setInterval(async () => {
         attempts += 1;
 
@@ -110,7 +108,6 @@ export default function AIGeneratorCard({
 
           const currentCount = checkRes.data.questions.length;
 
-          // If the count increased, the worker is done
           if (currentCount > initialCount) {
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
@@ -124,7 +121,6 @@ export default function AIGeneratorCard({
               text: `Generated ${currentCount - initialCount} questions!`,
             });
 
-            // Clear the inputs using refs
             if (pdfFileRef.current) pdfFileRef.current.value = "";
             if (topicRef.current) topicRef.current.value = "";
           }
@@ -143,10 +139,13 @@ export default function AIGeneratorCard({
             });
           }
         } catch (error: unknown) {
+          if (isUnauthorized(error)) return onSessionExpired(); 
           console.error("Error checking quiz status", error);
         }
       }, 3000);
     } catch (error: unknown) {
+      if (isUnauthorized(error)) return onSessionExpired(); 
+
       console.error(error);
 
       const mappedErrors = mapValidationErrors(error);
@@ -170,7 +169,6 @@ export default function AIGeneratorCard({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Status Banner */}
       {statusMsg && (
         <div
           className={`p-3 rounded-xl text-sm font-bold border ${
@@ -183,7 +181,6 @@ export default function AIGeneratorCard({
         </div>
       )}
 
-      {/* PDF Upload */}
       <input
         type="file"
         accept="application/pdf"
@@ -192,7 +189,6 @@ export default function AIGeneratorCard({
         className="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#72D177]/20 file:text-[#2E7D32] hover:file:bg-[#72D177]/30 cursor-pointer outline-none transition-colors"
       />
 
-      {/* Topic Input with dynamic error styling */}
       <div>
         <input
           type="text"
@@ -204,7 +200,6 @@ export default function AIGeneratorCard({
               : "border-transparent focus:border-black"
           }`}
         />
-
         {fieldErrors.topic && (
           <p className="text-red-500 text-xs mt-1 font-bold">
             {fieldErrors.topic}
@@ -212,7 +207,6 @@ export default function AIGeneratorCard({
         )}
       </div>
 
-      {/* Generate Button */}
       <button
         onClick={handleAIGenerate}
         disabled={isGenerating}

@@ -18,3 +18,8 @@ export const getApiErrorMessage = (error: unknown, fallback: string): string => 
 
   return error.response?.data?.error || fallback;
 };
+
+// Helper funcn to instantly check if the JWT token is expired/invalid
+export const isUnauthorized = (error: unknown): boolean => {
+  return axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403);
+};

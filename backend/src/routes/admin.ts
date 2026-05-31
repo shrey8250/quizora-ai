@@ -14,7 +14,7 @@ router.post("/signup", validate(signupSchema),async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     
     const newAdmin = await Admin.create({ username, passwordHash });
-    const token = jwt.sign({ adminId: newAdmin._id }, process.env.JWT_SECRET as string);
+    const token = jwt.sign({ adminId: newAdmin._id }, process.env.JWT_SECRET as string, { expiresIn: "24h" });
     
     res.status(201).json({ token });
   } catch (error) {
@@ -31,7 +31,7 @@ router.post("/login",validate(loginSchema), async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
     
-    const token = jwt.sign({ adminId: admin._id }, process.env.JWT_SECRET as string);
+    const token = jwt.sign({ adminId: admin._id }, process.env.JWT_SECRET as string, { expiresIn: "24h" });
     res.status(200).json({ token });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });

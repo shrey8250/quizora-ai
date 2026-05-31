@@ -18,8 +18,7 @@ import type {
   QuizResponse,
   StatusMessage,
 } from "../types/quiz";
-import { mapValidationErrors } from "../utils/apiErrors";
-
+import { mapValidationErrors, isUnauthorized } from "../utils/apiErrors"; 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
 
@@ -34,6 +33,7 @@ export default function Admin() {
 const [token, setToken] = useState<string>(localStorage.getItem("adminToken") || "");
 
 const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
+const [sessionExpiredMsg, setSessionExpiredMsg] = useState<string | null>(null); 
 const [quizFieldErrors, setQuizFieldErrors] = useState<FieldErrors>({});
 const [questionFieldErrors, setQuestionFieldErrors] = useState<FieldErrors>({});
 
@@ -53,10 +53,10 @@ const [liveQuestions, setLiveQuestions] = useState<QuizQuestion[]>([]);
 const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
 
-const handleLogout = () => {
+
+const resetDashboardState = () => {
   socketRef.current?.close();
   socketRef.current = null;
-
   setIsSocketReady(false);
   setToken("");
   localStorage.removeItem("adminToken");
@@ -68,6 +68,17 @@ const handleLogout = () => {
   setPlayers([]);
   setLiveQuestions([]);
   setCurrentQuestionIndex(0);
+};
+
+const handleLogout = () => {
+  resetDashboardState();
+  setSessionExpiredMsg(null); // Clear message on voluntary logout
+};
+
+
+const handleSessionExpired = () => {
+  resetDashboardState();
+  setSessionExpiredMsg("Your session has expired. Please log in again.");
 };
 
 const handleCreateQuiz = async () => {
@@ -96,8 +107,9 @@ const handleCreateQuiz = async () => {
       setStatusMsg({ type: "success", text: "Room ready. Add some questions!" });
     }
   } catch (error: unknown) {
-    console.error("Failed to create quiz:", error);
+    if (isUnauthorized(error)) return handleSessionExpired(); 
 
+    console.error("Failed to create quiz:", error);
     const mappedErrors = mapValidationErrors(error);
 
     if (mappedErrors) {
@@ -131,14 +143,13 @@ const handleAddQuestion = async () => {
 
     if (response.status === 201) {
       setStatusMsg({ type: "success", text: "Saved to bank!" });
-
       if (questionTextRef.current) questionTextRef.current.value = "";
-
       setOptions(createEmptyOptions());
     }
   } catch (error: unknown) {
-    console.error("Failed to add question:", error);
+    if (isUnauthorized(error)) return handleSessionExpired(); 
 
+    console.error("Failed to add question:", error);
     const mappedErrors = mapValidationErrors(error);
 
     if (mappedErrors) {
@@ -214,6 +225,8 @@ const handleOpenLobby = async () => {
       setStatusMsg({ type: "error", text: "Socket connection failed." });
     };
   } catch (error: unknown) {
+    if (isUnauthorized(error)) return handleSessionExpired(); 
+
     console.error("Failed to open lobby", error);
     setStatusMsg({ type: "error", text: "Failed to open lobby." });
   }
@@ -315,9 +328,9 @@ Exit Workspace
 {/* 1. AUTH SCREEN */}
 {!token ? (
 <div className="my-auto w-full max-w-5xl animate-fade-in overflow-y-auto">
-<AuthCard setToken={setToken} />
+<AuthCard setToken={setToken} sessionExpiredMsg={sessionExpiredMsg} />
 </div>
-) : /* ✨ 2. FINAL LEADERBOARD DASHBOARD */
+) : /*  2. FINAL LEADERBOARD DASHBOARD */
 leaderboard ? (
 <div className="w-full h-full max-w-4xl mt-4 animate-fade-in overflow-y-auto">
 <UserLeaderboard leaderboard={leaderboard} />
@@ -516,7 +529,7 @@ className="shrink-0 mt-4 w-full py-3 bg-white border-2 border-gray-200 rounded-f
 <h3 className="shrink-0 text-lg font-black text-black mb-1">AI Magic</h3>
 <p className="shrink-0 text-gray-500 font-medium text-[11px] mb-4">Drop a PDF. Get instant questions.</p>
 <div className="flex-1 overflow-y-auto min-h-0">
-<AIGeneratorCard quizId={quizId} token={token} />
+<AIGeneratorCard quizId={quizId} token={token} onSessionExpired={handleSessionExpired} />
 </div>
 </div>
 
