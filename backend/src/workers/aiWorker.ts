@@ -157,4 +157,6 @@ export const worker = new Worker("ai-generation-queue", async (job: Job) => {
   await Question.insertMany(questionsToSave);
   console.log("Quiz successfully generated and saved to database!");
 
+  return { roomId: quizId };
+
 }, { connection: connection as any });

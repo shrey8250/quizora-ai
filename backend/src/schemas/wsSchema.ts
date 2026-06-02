@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const joinAdminSchema = z.object({
-  roomId: z.string().min(1, "Room ID is required")
+  roomId: z.string().min(1, "Room ID is required"),
+  token: z.string().min(1, "Admin JWT token is required") 
 });
 
 export const joinRoomSchema = z.object({

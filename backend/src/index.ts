@@ -1,4 +1,5 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import { WebSocketServer } from "ws";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -94,7 +95,18 @@ wss.on("connection", (socket) => {
       const parsed = joinAdminSchema.safeParse(data.payload);
         if (!parsed.success) return console.error("Invalid JOIN_ADMIN payload", parsed.error);
 
-        const { roomId } = parsed.data;
+        const { roomId, token } = parsed.data;
+
+        // Verify the Admin JWT via WebSocket 
+        try {
+        jwt.verify(token, process.env.JWT_SECRET as string);
+      } catch (err) {
+        console.warn(`Unauthorized WebSocket admin attempt blocked for room: ${roomId}`);
+        // Immediately sever the connection for bad actors
+        socket.close(4000, "Unauthorized Admin Access"); 
+        return;
+      }
+
         // We use a secret name so the Admin doesn't show up on the leaderboard
         userManager.addUser(roomId, "host_admin_secret", socket);
 

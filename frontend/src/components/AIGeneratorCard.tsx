@@ -52,6 +52,25 @@ export default function AIGeneratorCard({
       return;
     }
 
+    //  PDF Type Validation
+    if (file.type !== "application/pdf") {  
+      setStatusMsg({
+        type: "error",
+        text: "Invalid file format. Please upload a PDF document.",
+      });
+      return;
+    }
+
+    // PDF Size Validation
+    const MAX_FILE_SIZE_MB = 5;
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setStatusMsg({
+        type: "error",
+        text: `File is too large. Maximum allowed size is ${MAX_FILE_SIZE_MB}MB.`,
+      });
+      return;
+    }
+
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 

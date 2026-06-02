@@ -197,7 +197,7 @@ const handleOpenLobby = async () => {
 
       const message: AdminClientMessage = {
         type: "JOIN_ADMIN",
-        payload: { roomId: quizId },
+        payload: { roomId: quizId, token: token },
       };
 
       ws.send(JSON.stringify(message));

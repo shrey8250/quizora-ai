@@ -101,6 +101,7 @@ export type AdminClientMessage =
       type: "JOIN_ADMIN";
       payload: {
         roomId: string;
+        token: string;  // Token for WebSocket Auth
       };
     }
   | {
